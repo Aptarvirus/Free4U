@@ -7,12 +7,28 @@ document.getElementById("pdf").addEventListener("click", async function() {
         return;
     }
 
+    // Helper function to get the CSRF token from cookies
+    const getCookie = (name) => {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    };
 
     try {
         msg.textContent = "Starting download...";
 
-        const response = await fetch(url);
-        if (!response.ok) throw new Error("Network response was not ok");
+        const response = await fetch(url, {
+            method: "POST", // CSRF protection is usually required for POST/PUT/DELETE
+            headers: {
+                "Content-Type": "application/json",
+                // THE FIX: Include the CSRF token in the header
+                "X-CSRF-TOKEN": getCookie("csrftoken") 
+            },
+            // Include credentials if the request is to your own domain
+            credentials: "same-origin" 
+        });
+
+        if (!response.ok) throw new Error("Download failed");
 
         const blob = await response.blob();
         const blobUrl = window.URL.createObjectURL(blob);
@@ -29,6 +45,6 @@ document.getElementById("pdf").addEventListener("click", async function() {
 
     } catch (error) {
         console.error(error);
-        msg.textContent = "Error: The server might be blocking us due to CORS policy, hence we can not download it.";
+        msg.textContent = "Error: Check CORS policy or CSRF token validity.";
     }
 });
